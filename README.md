@@ -4,3 +4,4 @@ Syslog fork with the following breaking changes:
 
 and non-breaking changes:
 * new `syslog.DialTls()` method to make encrypted syslog calls
+* predefined network types e.g. `udp` 
