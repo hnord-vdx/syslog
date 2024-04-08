@@ -7,6 +7,7 @@
 package syslog
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -77,11 +78,12 @@ type Writer struct {
 	priority Priority
 	tag      string
 	hostname string
-	network  string
+	network  string // tls+tcp, tcp, udp, unixgram, unix
 	raddr    string
 
-	mu   sync.Mutex // guards conn
-	conn serverConn
+	mu        sync.Mutex // guards conn
+	conn      serverConn
+	tlsConfig *tls.Config // required for "tls+tcp"
 }
 
 // This interface and the separate syslog_unix.go file exist for
@@ -142,6 +144,37 @@ func Dial(network, raddr string, priority Priority, tag, hostname string) (*Writ
 	return w, err
 }
 
+// Same as dial, but connects to the syslog daemon using TLS.
+func DialTls(network, raddr string, priority Priority, tag, hostname string, tlsConfig *tls.Config) (*Writer, error) {
+	if network != "tls+tcp" {
+		return nil, errors.New("log/syslog: invalid network")
+	} else if priority < 0 || priority > LOG_LOCAL7|LOG_DEBUG {
+		return nil, errors.New("log/syslog: invalid priority")
+	}
+
+	if tag == "" {
+		tag = os.Args[0]
+	}
+
+	w := &Writer{
+		priority:  priority,
+		tag:       tag,
+		hostname:  hostname,
+		network:   network,
+		raddr:     raddr,
+		tlsConfig: tlsConfig,
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	err := w.connect()
+	if err != nil {
+		return nil, err
+	}
+	return w, err
+}
+
 // connect makes a connection to the syslog server.
 // It must be called with w.mu held.
 func (w *Writer) connect() (err error) {
@@ -155,6 +188,15 @@ func (w *Writer) connect() (err error) {
 		w.conn, err = unixSyslog()
 		if w.hostname == "" {
 			w.hostname = "localhost"
+		}
+	} else if w.network == "tls+tcp" {
+		var c net.Conn
+		c, err = tls.Dial("tcp", w.raddr, w.tlsConfig)
+		if err == nil {
+			w.conn = &netConn{
+				conn:  c,
+				local: w.network == "unixgram" || w.network == "unix",
+			}
 		}
 	} else {
 		var c net.Conn
