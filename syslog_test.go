@@ -48,7 +48,7 @@ var crashy = false
 
 func testableNetwork(network string) bool {
 	switch network {
-	case "unix", "unixgram":
+	case UNIX, "unixgram":
 		switch runtime.GOOS {
 		case "ios", "android":
 			return false
@@ -140,7 +140,7 @@ func TestWithSimulated(t *testing.T) {
 	t.Parallel()
 
 	msg := "Test 123"
-	for _, tr := range []string{"unix", "unixgram", "udp", "tcp"} {
+	for _, tr := range []string{UNIX, "unixgram", "udp", "tcp"} {
 		if !testableNetwork(tr) {
 			continue
 		}
@@ -154,7 +154,7 @@ func TestWithSimulated(t *testing.T) {
 			addr, sock, srvWG := startServer(t, tr, "", done)
 			defer srvWG.Wait()
 			defer sock.Close()
-			if tr == "unix" || tr == "unixgram" {
+			if tr == UNIX || tr == "unixgram" {
 				defer os.Remove(addr)
 			}
 			s, err := Dial(tr, addr, LOG_INFO|LOG_USER, "syslog_test", hostname)
@@ -173,7 +173,7 @@ func TestWithSimulated(t *testing.T) {
 
 func TestFlap(t *testing.T) {
 	hostname := "localhost"
-	net := "unix"
+	net := UNIX
 	if !testableNetwork(net) {
 		t.Skipf("skipping on %s/%s; 'unix' is not supported", runtime.GOOS, runtime.GOARCH)
 	}
@@ -270,7 +270,7 @@ func TestDial(t *testing.T) {
 }
 
 func check(t *testing.T, in, out, transport, hostname string) {
-	if transport == "unixgram" || transport == "unix" {
+	if transport == "unixgram" || transport == UNIX {
 		var month, date, ts string
 		var pid int
 		tmpl := fmt.Sprintf("<%d>%%s %%s %%s syslog_test[%%d]: %s\n", LOG_USER+LOG_INFO, in)
@@ -318,7 +318,7 @@ func TestWrite(t *testing.T) {
 			addr, sock, srvWG := startServer(t, "udp", "", done)
 			defer srvWG.Wait()
 			defer sock.Close()
-			l, err := Dial("udp", addr, test.pri, test.pre, hostname)
+			l, err := Dial(UDP, addr, test.pri, test.pre, hostname)
 			if err != nil {
 				t.Fatalf("syslog.Dial() failed: %v", err)
 			}
@@ -342,7 +342,7 @@ func TestConcurrentWrite(t *testing.T) {
 	addr, sock, srvWG := startServer(t, "udp", "", make(chan string, 1))
 	defer srvWG.Wait()
 	defer sock.Close()
-	w, err := Dial("udp", addr, LOG_USER|LOG_ERR, "how's it going?", "localhost")
+	w, err := Dial(UDP, addr, LOG_USER|LOG_ERR, "how's it going?", "localhost")
 	if err != nil {
 		t.Fatalf("syslog.Dial() failed: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestConcurrentReconnect(t *testing.T) {
 
 	const N = 10
 	const M = 100
-	net := "unix"
+	net := UNIX
 	if !testableNetwork(net) {
 		net = "tcp"
 		if !testableNetwork(net) {
@@ -376,7 +376,7 @@ func TestConcurrentReconnect(t *testing.T) {
 	}
 	done := make(chan string, N*M)
 	addr, sock, srvWG := startServer(t, net, "", done)
-	if net == "unix" {
+	if net == UNIX {
 		defer os.Remove(addr)
 	}
 

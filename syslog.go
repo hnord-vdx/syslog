@@ -73,6 +73,14 @@ const (
 	LOG_LOCAL7
 )
 
+// Network types
+const (
+	UNIX     = "unix"
+	UNIXGRAM = "unixgram"
+	UDP      = "udp"
+	TLSTCP   = "tls+tcp"
+)
+
 // A Writer is a connection to a syslog server.
 type Writer struct {
 	priority Priority
